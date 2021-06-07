@@ -1,12 +1,4 @@
-/**
- * This script contains WAPI functions that need to be run in the context of the webpage
- */
-
-/**
- * Auto discovery the webpack object references of instances that contains all functions used by the WAPI
- * functions and creates the Store object.
- */
- if (!window.Store) {
+if (!window.Store) {
     (function () {
         function getStore(modules) {
         let foundCount = 0;
@@ -19,7 +11,12 @@
                 { id: "State", conditions: (module) => (module.STATE && module.STREAM) ? module : null },
                 { id: "WapDelete", conditions: (module) => (module.sendConversationDelete && module.sendConversationDelete.length == 2) ? module : null },
                 { id: "Conn", conditions: (module) => (module.default && module.default.ref && module.default.refTTL) ? module.default : null },
-                { id: "WapQuery", conditions: (module) => (module.queryExist) ? module : ((module.default && module.default.queryExist) ? module.default : null) },
+                // { id: "WapQuery", conditions: (module) => (module.queryExist) ? module : ((module.default && module.default.queryExist) ? module.default : null) },
+                // { id: "WapQuery", conditions: (module) => (module.default && module.default.queryExist) ? module.default : null },
+                {
+                    id: "WapQuery",
+                    conditions: (module) => (module.default && module.default.queryExist) ? module.default : null
+                    },
                 { id: "CryptoLib", conditions: (module) => (module.decryptE2EMedia) ? module : null },
                 { id: "OpenChat", conditions: (module) => (module.default && module.default.prototype && module.default.prototype.openChat) ? module.default : null },
                 { id: "UserConstructor", conditions: (module) => (module.default && module.default.prototype && module.default.prototype.isServer && module.default.prototype.isUser) ? module.default : null },
@@ -297,49 +294,17 @@ window.WAPI.getAllGroups = function (done) {
 window.WAPI.getChat = function (id, done) {
     id = typeof id == "string" ? id : id._serialized;
     const found = window.Store.Chat.get(id);
-    found.sendMessage = (found.sendMessage) ? found.sendMessage : function () { return window.Store.sendMessage.apply(this, arguments); };
     if (done !== undefined) done(found);
     return found;
 }
 
 window.WAPI.getChatByName = function (name, done) {
-    const found = window.WAPI.getAllChats().find(val => val.name.includes(name))
+    const found = window.Store.Chat.find((chat) => chat.name === name);
     if (done !== undefined) done(found);
     return found;
 };
 
-window.WAPI.sendImageFromDatabasePicBot = function (picId, chatId, caption) {
-    var chatDatabase = window.WAPI.getChatByName('DATABASEPICBOT');
-    var msgWithImg   = chatDatabase.msgs.find((msg) => msg.caption == picId);
-
-    if (msgWithImg === undefined) {
-        return false;
-    }
-    var chatSend = WAPI.getChat(chatId);
-    if (chatSend === undefined) {
-        return false;
-    }
-    const oldCaption = msgWithImg.caption;
-
-    msgWithImg.id.id     = window.WAPI.getNewId();
-    msgWithImg.id.remote = chatId;
-    msgWithImg.t         = Math.ceil(new Date().getTime() / 1000);
-    msgWithImg.to        = chatId;
-
-    if (caption !== undefined && caption !== '') {
-        msgWithImg.caption = caption;
-    } else {
-        msgWithImg.caption = '';
-    }
-
-    msgWithImg.collection.send(msgWithImg).then(function (e) {
-        msgWithImg.caption = oldCaption;
-    });
-
-    return true;
-};
-
-window.WAPI.sendMessageWithThumb = function (thumb, url, title, description, text, chatId, done) {
+window.WAPI.sendMessageWithThumb = function (thumb, url, title, description, chatId, done) {
     var chatSend = WAPI.getChat(chatId);
     if (chatSend === undefined) {
         if (done !== undefined) done(false);
@@ -350,13 +315,9 @@ window.WAPI.sendMessageWithThumb = function (thumb, url, title, description, tex
         description : description,
         matchedText : url,
         title       : title,
-        thumbnail   : thumb,
-        compose: true
+        thumbnail   : thumb
     };
-    chatSend.sendMessage(text, { linkPreview: linkPreview,
-                                mentionedJidList: [],
-                                quotedMsg: null,
-                                quotedMsgAdminGroupJid: null });
+    chatSend.sendMessage(url, { linkPreview: linkPreview, mentionedJidList: [], quotedMsg: null, quotedMsgAdminGroupJid: null });
     if (done !== undefined) done(true);
     return true;
 };
@@ -506,7 +467,7 @@ window.WAPI.areAllMessagesLoaded = function (id, done) {
 window.WAPI.loadEarlierMessagesTillDate = function (id, lastMessage, done) {
     const found = WAPI.getChat(id);
     x = function () {
-        if (found.msgs.models[0].t > lastMessage && !found.msgs.msgLoadState.noEarlierMsgs) {
+        if (found.msgs.models[0].t > lastMessage) {
             found.loadEarlierMsgs().then(x);
         } else {
             done();
@@ -537,13 +498,7 @@ window.WAPI.getAllGroupMetadata = function (done) {
  * @returns {T|*} Group metadata object
  */
 window.WAPI.getGroupMetadata = async function (id, done) {
-    let output = window.Store.GroupMetadata.get(id);
-
-    if (output !== undefined) {
-        if (output.stale) {
-            await window.Store.GroupMetadata.update(id);
-        }
-    }
+    let output = await window.Store.GroupMetadata.update(id);
 
     if (done !== undefined) done(output);
     return output;
@@ -605,14 +560,6 @@ window.WAPI.isLoggedIn = function (done) {
 
     if (done !== undefined) done(isLogged);
     return isLogged;
-};
-
-window.WAPI.isConnected = function (done) {
-    // Phone Disconnected icon appears when phone is disconnected from the tnternet
-    const isConnected = document.querySelector('*[data-icon="alert-phone"]') !== null ? false : true;
-
-    if (done !== undefined) done(isConnected);
-    return isConnected;
 };
 
 window.WAPI.processMessageObj = function (messageObj, includeMe, includeNotifications) {
@@ -730,21 +677,50 @@ window.WAPI.ReplyMessage = function (idMessage, message, done) {
     }
 };
 
-
 window.WAPI.sendMessageToID = function (id, message, done) {
-    
-	try {
-		console.log('Tentando enviar número completo: ', id);
-		window.WAPI.sendMessage(id, message);
+    try {
+        window.getContact = (id) => {
+            return Store.WapQuery.queryExist(id);
+        }
+        window.getContact(id).then(contact => {
+            if (contact.status === 404) {
+                done(true);
+            } else {
+                Store.Chat.find(contact.jid).then(chat => {
+                    chat.sendMessage(message);
+                    return true;
+                }).catch(reject => {
+                    if (WAPI.sendMessage(id, message)) {
+                        done(true);
+                        return true;
+                    }else{
+                        done(false);
+                        return false;
+                    }
+                });
+            }
+        });
     } catch (e) {
-		var contato = id;
-		if(id.length > 17){
-			id= contato.substring(0,4);
-			id= id + contato.substring(5,18);
-		}
-		console.log('Tentando enviar removendo o 9 (apos erro de tentativa): ', id);
-		window.WAPI.sendMessage(id, message);
-    }    
+        if (window.Store.Chat.length === 0)
+            return false;
+
+        firstChat = Store.Chat.models[0];
+        var originalID = firstChat.id;
+        firstChat.id = typeof originalID === "string" ? id : new window.Store.UserConstructor(id, { intentionallyUsePrivateConstructor: true });
+        if (done !== undefined) {
+            firstChat.sendMessage(message).then(function () {
+                firstChat.id = originalID;
+                done(true);
+            });
+            return true;
+        } else {
+            firstChat.sendMessage(message);
+            firstChat.id = originalID;
+            return true;
+        }
+    }
+    if (done !== undefined) done(false);
+    return false;
 }
 
 window.WAPI.sendMessage = function (id, message, done) {
@@ -814,14 +790,12 @@ window.WAPI.sendSeen = function (id, done) {
     var chat = window.WAPI.getChat(id);
     if (chat !== undefined) {
         if (done !== undefined) {
-            if (chat.getLastMsgKeyForAction === undefined)
-                chat.getLastMsgKeyForAction = function () { };
-            Store.SendSeen(chat, false).then(function () {
+            Store.SendSeen(Store.Chat.models[0], false).then(function () {
                 done(true);
             });
             return true;
         } else {
-            Store.SendSeen(chat, false);
+            Store.SendSeen(Store.Chat.models[0], false);
             return true;
         }
     }
@@ -1070,12 +1044,11 @@ window.WAPI.deleteMessage = function (chatId, messageArray, revoke=false, done) 
     if (!Array.isArray(messageArray)) {
         messageArray = [messageArray];
     }
-    let messagesToDelete = messageArray.map(msgId => window.Store.Msg.get(msgId));
 
     if (revoke) {
-        conversation.sendRevokeMsgs(messagesToDelete, conversation);
+        conversation.sendRevokeMsgs(messageArray, conversation);    
     } else {
-        conversation.sendDeleteMsgs(messagesToDelete, conversation);
+        conversation.sendDeleteMsgs(messageArray, conversation);    
     }
 
 
@@ -1204,11 +1177,15 @@ var idUser = new window.Store.UserConstructor(chatid, { intentionallyUsePrivateC
 // create new chat
 return Store.Chat.find(idUser).then((chat) => {
     var mediaBlob = window.WAPI.base64ImageToFile(imgBase64, filename);
+    console.log('mediaBlob')
     var mc = new Store.MediaCollection(chat);
     mc.processAttachments([{file: mediaBlob}, 1], chat, 1).then(() => {
+    console.log('mc.processFiles')
         var media = mc.models[0];
-        media.sendToChat(chat, { caption: caption });
-        if (done !== undefined) done(true);
+        console.log('media')
+        media.sendToChat(chat, { 
+	caption: caption });
+        if (done !== undefined) {console.log('done'); done(true);}
     });
 });
 }
@@ -1307,7 +1284,7 @@ window.WAPI.sendVCard = function (chatId, vcard) {
     chat.addAndSendMsg(tempMsg);
 };
 /**
- * Block contact
+ * Block contact 
  * @param {string} id '000000000000@c.us'
  * @param {*} done - function - Callback function to be called when a new message arrives.
  */
@@ -1322,7 +1299,7 @@ window.WAPI.contactBlock = function (id, done) {
     return false;
 }
 /**
- * unBlock contact
+ * unBlock contact 
  * @param {string} id '000000000000@c.us'
  * @param {*} done - function - Callback function to be called when a new message arrives.
  */
@@ -1345,7 +1322,7 @@ window.WAPI.contactUnblock = function (id, done) {
  */
 window.WAPI.removeParticipantGroup = function (idGroup, idParticipant, done) {
     window.Store.WapQuery.removeParticipants(idGroup, [idParticipant]).then(() => {
-        const metaDataGroup = window.Store.GroupMetadata.get(id)
+        const metaDataGroup = window.Store.GroupMetadata.update(id)
         checkParticipant = metaDataGroup.participants._index[idParticipant];
         if (checkParticipant === undefined) {
             done(true); return true;
@@ -1361,7 +1338,7 @@ window.WAPI.removeParticipantGroup = function (idGroup, idParticipant, done) {
  */
 window.WAPI.promoteParticipantAdminGroup = function (idGroup, idParticipant, done) {
     window.Store.WapQuery.promoteParticipants(idGroup, [idParticipant]).then(() => {
-        const metaDataGroup = window.Store.GroupMetadata.get(id)
+        const metaDataGroup = window.Store.GroupMetadata.update(id)
         checkParticipant = metaDataGroup.participants._index[idParticipant];
         if (checkParticipant !== undefined && checkParticipant.isAdmin) {
             done(true); return true;
@@ -1378,7 +1355,7 @@ window.WAPI.promoteParticipantAdminGroup = function (idGroup, idParticipant, don
  */
 window.WAPI.demoteParticipantAdminGroup = function (idGroup, idParticipant, done) {
     window.Store.WapQuery.demoteParticipants(idGroup, [idParticipant]).then(() => {
-        const metaDataGroup = window.Store.GroupMetadata.get(id)
+        const metaDataGroup = window.Store.GroupMetadata.update(id)
         if (metaDataGroup === undefined) {
             done(false); return false;
         }
@@ -1389,6 +1366,917 @@ window.WAPI.demoteParticipantAdminGroup = function (idGroup, idParticipant, done
         done(true); return true;
     })
 }
+
+window.WAPI.sendMessageToID = function (id, message, done) {
+    try {
+        window.getContact = (id) => {
+            return Store.WapQuery.queryExist(id);
+        }
+        return window.getContact(id).then(contact => {
+            try{
+                if (contact.status === 404) {
+                    done(true);
+                }if (contact.status === 400) {
+                    Store.Chat.find(id).then(chat => {
+                        window.Store.SendTextMsgToChat(chat, message).then(function (e) {
+                    console.log(e);
+                    (callback || Core.nop)({ status: e });
+                });
+        
+                    })
+                }
+                else {
+                console.log(contact.jid._serialized)
+                numeroEnviadoMSG = contact.jid._serialized
+                console.log('mandou aqui ')
+
+                var idUser = new window.Store.UserConstructor(contact.jid._serialized, { intentionallyUsePrivateConstructor: true });
+                // create new chat
+                Store.Chat.find(idUser).then((chat) => {
+                window.Store.SendTextMsgToChat(chat, message).then(function (e) {
+                                console.log(e);
+                                (callback || Core.nop)({ status: e });
+                            });
+                    });
+                    return true
+                }
+            }catch(e){
+                return false
+            }
+        });
+    } catch (e) {
+        return false
+    }
+}
+
+function responda(user){
+	if(user.length == 10){
+		user = user.substring(0,2)+'9'+user.substring(2);
+	}
+    mensagem = JSON.parse(localStorage.getItem(user));
+    
+	nivel = localStorage.getItem(user+'nivel');
+	console.log(user);
+    if(mensagem!=undefined){
+	console.log('if');
+	window.WAPI.sendMessageToID("55"+user+"@c.us", mensagem[nivel]);
+	localStorage.setItem(user+'nivel', parseInt(nivel)+1);
+    }
+}
+
+window.WAPI.waitNewMessages(false, responder)
+async function responder(data){
+    await sleep(20000);
+	user = data[0].from.user.substring(2);
+	user2 = data[0].from.user.substring(2);
+	if(user.length == 10){
+		user = user.substring(0,2)+'9'+user.substring(2);
+	}
+    mensagem = JSON.parse(localStorage.getItem(user));    
+	nivel = localStorage.getItem(user+'nivel');
+	
+	console.log(user);
+	console.log(user2);
+	console.log(mensagem);
+	console.log(nivel);
+	
+	if(nivel==null || mensagem==null || nivel=="null" || mensagem=="null"){ 
+		mensagem = JSON.parse(localStorage.getItem(user2));    
+		nivel = localStorage.getItem(user2+'nivel');
+		
+		console.log("user2 Usando sem 9")
+		if(mensagem!=undefined){
+			console.log('if');
+			window.WAPI.sendMessageToID("55"+user2+"@c.us", mensagem[nivel]);
+			localStorage.setItem(user2+'nivel', parseInt(nivel)+1);
+		}  
+	}else{	
+		console.log("user1 Usando com 9")
+		if(mensagem!=undefined){
+			console.log('if');
+			window.WAPI.sendMessageToID(data[0].from._serialized, mensagem[nivel]);
+			localStorage.setItem(user+'nivel', parseInt(nivel)+1);
+		} 
+	} 
+}
+
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function criarContatoEmContatos(numero, nome, estabelecimento, origem, nivelSdr, nivelFallowUp, status){
+	let contato = {"numero": numero, "nome": nome, "estabelecimento": estabelecimento, "orgiem": origem, "nivelSdr": nivelSdr, "nivelFallowUp": nivelFallowUp, "status": status}
+	
+	let search = "31993861616";
+	let tem = false;
+	for (var i=0 ; i < contatos.length ; i++)
+	{
+		if (contatos[i].numero == search) {
+			tem = true
+		}
+	}
+
+	if(tem == false){
+		contatos.push(contato)
+	}else{
+		console.log("esse numero ja esta na planilha")
+	}
+}
+
+
+
+
+async function iniciarContato(contato, nomeEstabelecimento, nomeResponsavel, cidade, concorrenteReferencia, nomeSdr){
+			
+	
+	contato = replaceAll(contato, ' ', '');
+	contato = replaceAll(contato, '-', '');
+	contato = replaceAll(contato, '(', '');
+	contato = replaceAll(contato, ')', '');
+	contato = replaceAll(contato, '.', '');
+	concorrenteReferencia = replaceAll(concorrenteReferencia, "'", "");
+	nomeEstabelecimento = replaceAll(nomeEstabelecimento, "'", "");
+
+
+	
+	let enviarPara = '55' + contato + '@c.us'
+	let msg = 'Olá, Este é o Whatsapp de ' + nomeResponsavel + ' responsável pelo ' + nomeEstabelecimento + '?'
+	let msg1 = 'Meu nome é ' + nomeSdr + ' e estou falando da Cliente Fiel, somos uma plataforma de Delivery e já temos mais de 500 estabelecimentos cadastrados em nosso sistema. Cuidamos do delivery de empresas como '+concorrenteReferencia+', Acaí Concept e Jah do Açaí, entre outras marcas da cidade '+cidade+'!\n\nTudo bem com você?' 
+	let msg2 = 'Gostaria de uns minutinhos da sua atenção para falar sobre a nossa ferramente de automatização de pedidos.\n\nTemos *atendente virtual para o seu whatsapp, aplicativos personalizados, cardápio digital*, entre outras funcionalidades para auxiliar e otimizar o seu estabelecimento.\n\nAcha que alguma dessas funcionalidades faz sentido para o seu negócio hoje?'
+	let msg3 = 'Bom, para saber mais, acesse nosso site e conte-me o que achou:\n\nhttps://appclientefiel.com.br/?utm_source=dmh'
+	
+	
+	window.WAPI.sendMessageToID(enviarPara, msg);
+	
+	localStorage.setItem(contato,JSON.stringify([ msg1 , msg2  , msg3])); 
+	localStorage.setItem(contato+'nivel',0);
+	console.log(contato+" CRIADA!")
+}
+
+function replaceAll(str, de, para){
+    var pos = str.indexOf(de);
+    while (pos > -1){
+		str = str.replace(de, para);
+		pos = str.indexOf(de);
+	}
+    return (str);
+}
+
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function zerarTodasInfo(){
+	localStorage.setItem("MsgEnviada"+dataEnvio.getDay()+"/"+dataEnvio.getMonth()+"/"+dataEnvio.getFullYear(), 0)
+	localStorage.setItem("MsgEnviadaMes"+dataEnvio.getMonth()+ "/" + dataEnvio.getFullYear(), 0);
+	localStorage.setItem("MsgEnviadaAno"+dataEnvio.getFullYear(), 0);	
+	localStorage.setItem('ChegouFimRobo', 0);			
+	localStorage.setItem('ChegouMetadeRobo', 0);			
+	
+}
+
+
+
+
+
+
+
+//SITE
+
+async function possoAjudar(contato, sdr = "Larissa"){
+	contato = replaceAll(contato, ' ', '');
+	contato = replaceAll(contato, '-', '');
+	contato = replaceAll(contato, '(', '');
+	contato = replaceAll(contato, ')', '');
+	contato = replaceAll(contato, '.', '');	
+	
+	let contatoEnviar = '55' + contato + '@c.us'
+	let mensavemEnviar = 'Meu nome é '+sdr+' da empresa Cliente Fiel. Nossa empresa trabalha como parceiros de estabelecimentos do ramo de alimentação em todo o Brasil. Você deixou uma mensagem em nosso site.\n\n*Posso ajudar?*'
+	
+	
+	window.WAPI.sendMessageToID(contatoEnviar, mensavemEnviar);
+}
+
+
+async function oiTudoBem(contato, nomeEstabelecimento, nomeResponsavel){
+	contato = replaceAll(contato, ' ', '');
+	contato = replaceAll(contato, '-', '');
+	contato = replaceAll(contato, '(', '');
+	contato = replaceAll(contato, ')', '');
+	contato = replaceAll(contato, '.', '');
+	nomeResponsavel = replaceAll(nomeResponsavel, "'", "");
+	nomeEstabelecimento = replaceAll(nomeEstabelecimento, "'", "");
+	
+	let contatoEnviar = '55' + contato + '@c.us'
+	let mensavemEnviar = 'Olá, Este é o Whatsapp de ' + nomeResponsavel + ' responsável pelo ' + nomeEstabelecimento + '?'	
+	window.WAPI.sendMessageToID(contatoEnviar, mensavemEnviar);
+}
+
+
+async function iniciarContatoSite(contato, nomeEstabelecimento, nomeResponsavel, sdr = "Larissa"){
+
+	contato = replaceAll(contato, ' ', '');
+	contato = replaceAll(contato, '-', '');
+	contato = replaceAll(contato, '(', '');
+	contato = replaceAll(contato, ')', '');
+	contato = replaceAll(contato, '.', '');
+	nomeEstabelecimento = replaceAll(nomeEstabelecimento, "'", "");
+
+
+	
+	let enviarPara = '55' + contato + '@c.us'
+	let msg = 'Olá, Este é o Whatsapp de '+nomeResponsavel+' responsável pelo '+nomeEstabelecimento+'?'
+	let msg1 = 'Meu nome é '+sdr+' da empresa Cliente Fiel. Nossa empresa trabalha como parceiros de estabelecimentos do ramo de alimentação em todo o Brasil. Você deixou uma mensagem em nosso site.\n\n*Posso ajudar?*'
+	//let msg2 = 'Bom.. nesse momento da nossa conversa, seria interessante pegar algumas informações do seu negócio.\n\nApós isso, se for do seu interesse, a gente agenda uma ligação para que um representante possa tirar todas as suas dúvidas.\n\n*Pode ser?*'
+	//let msg3 = 'Interessante. Sendo assim, me conte:\n\n- Qual a média de pedidos que você recebe diariamente?'
+	
+	window.WAPI.sendMessageToID(enviarPara, msg);
+	
+	localStorage.setItem(contato,JSON.stringify([ msg1])); 
+	localStorage.setItem(contato+'nivel',0);
+	console.log(contato+" CRIADA!")
+}
+
+
+async function fallowup1(contato, nomeResponsavel, nomeEstabelecimento){
+	
+	contato = replaceAll(contato, ' ', '');
+	contato = replaceAll(contato, '-', '');
+	contato = replaceAll(contato, '(', '');
+	contato = replaceAll(contato, ')', '');
+	contato = replaceAll(contato, '.', '');
+	nomeEstabelecimento = replaceAll(nomeEstabelecimento, "'", "");
+	
+	let enviarPara = '55' + contato + '@c.us'
+	let msg = 'Oi '+nomeResponsavel+', tudo bem?'
+	let msg1 = 'Passando para lembrar das nossas ferramentas.'
+	let msg2 = 'Hoje trabalhamos com diversas ferramentas para delivery e atendimento. As principais para serviço de entrega são os *Aplicativos Personalizados* e *Cardapio Digital* . Para o atendimento, trabalhamos com a Izza, ela automatiza seu whatsapp como uma *atendente virtual*.'
+	
+	
+	window.WAPI.sendMessageToID(enviarPara, msg);
+	await sleep(5000)
+	window.WAPI.sendMessageToID(enviarPara, msg1);
+	await sleep(5000)
+	window.WAPI.sendMessageToID(enviarPara, msg2);
+}
+
+
+async function fallowup3(contato, nomeResponsavel, nomeEstabelecimento){	
+	
+	contato = replaceAll(contato, ' ', '');
+	contato = replaceAll(contato, '-', '');
+	contato = replaceAll(contato, '(', '');
+	contato = replaceAll(contato, ')', '');
+	contato = replaceAll(contato, '.', '');
+	nomeEstabelecimento = replaceAll(nomeEstabelecimento, "'", "");
+	
+	let enviarPara = '55' + contato + '@c.us'
+	let enviarPara2 = '559' + contato + '@c.us'
+	let msg = 'Oi '+nomeResponsavel+', tudo bem?'
+	let msg1 = 'Passando para lembrar da atendente virtual que pode te ajudar bastante no atendimento do seus clientes.'
+	let msg2 = 'Qualquer duvida estou a disposição!'
+	
+	
+	window.WAPI.sendMessageToID(enviarPara, msg);
+	await sleep(5000)
+	window.WAPI.sendMessageToID(enviarPara, msg1);
+	await sleep(5000)
+	window.WAPI.sendMessageToID(enviarPara, msg2);
+}
+
+
+async function fallowup4(contato, nomeResponsavel, nomeEstabelecimento){
+	
+	contato = replaceAll(contato, ' ', '');
+	contato = replaceAll(contato, '-', '');
+	contato = replaceAll(contato, '(', '');
+	contato = replaceAll(contato, ')', '');
+	contato = replaceAll(contato, '.', '');
+	nomeEstabelecimento = replaceAll(nomeEstabelecimento, "'", "");
+	
+	let enviarPara = '55' + contato + '@c.us'
+	let msg = 'Oi '+nomeResponsavel+', tudo bem?'
+	let msg1 = 'Bom... qualquer duvida estou a disposição viu? Entre em nosso site depois https://www.appclientefiel.com.br/'
+	
+	
+	window.WAPI.sendMessageToID(enviarPara, msg);
+	await sleep(5000)
+	window.WAPI.sendMessageToID(enviarPara, msg1);
+}
+
+async function iniciarContatoIfood(contato, nomeEstabelecimento){
+	
+	contato = replaceAll(contato, ' ', '');
+	contato = replaceAll(contato, '-', '');
+	contato = replaceAll(contato, '(', '');
+	contato = replaceAll(contato, ')', '');
+	contato = replaceAll(contato, '.', '');
+	nomeEstabelecimento = replaceAll(nomeEstabelecimento, "'", "");
+	
+	let enviarPara = '55' + contato + '@c.us'
+	let msg = 'Olá, esse é o contato do responsável pelo ' +nomeEstabelecimento
+	let msg1 = 'Meu nome é Larissa, falo da Cliente Fiel.\n\nGostaria de uns minutinhos da sua atenção para falar sobre a nossa ferramenta de automatização de pedidos.\n\nTemos *atendente virtual para o seu whatsapp, aplicativos personalizados, cardápio digital*, entre outras funcionalidades para auxiliar e otimizar o seu estabelecimento.\n\nAcha que alguma dessas funcionalidades faz sentido para o seu negócio hoje?'
+	let msg2 = 'Queria te convidar a dar uma olhada no nosso site para ter uma noção de como podemos te ajudar a aumentar as suas vendas e que você voltasse aqui para me contar, o que acha?\n\nhttps://appclientefiel.com.br/?utm_source=dmh'
+	
+	window.WAPI.sendMessageToID(enviarPara, msg);
+	
+	localStorage.setItem(contato,JSON.stringify([ msg1])); 
+	localStorage.setItem(contato+'nivel',0);
+	console.log(contato+" CRIADA!")
+}
+
+async function planilhaMotoBoy(contato, nomeEstabelecimento){
+	
+	contato = replaceAll(contato, ' ', '');
+	contato = replaceAll(contato, '-', '');
+	contato = replaceAll(contato, '(', '');
+	contato = replaceAll(contato, ')', '');
+	contato = replaceAll(contato, '.', '');
+	nomeEstabelecimento = replaceAll(nomeEstabelecimento, "'", "");
+	
+	let enviarPara = '55' + contato + '@c.us'
+	let msg = 'Olá, tudo bem?\n\n?? O delivery de alimentos têm se tornado um mercado em crescimento nos últimos anos. Ainda mais com a correria da vida, o tempo para preparar refeições está cada vez mais escasso e as pessoas acabam optando por pedir sua comida em restaurantes e até mesmo fazer compras online em supermercados. Com o objetivo de te ajudar a aumentar pedidos no seu delivery e fidelizar clientes, a *Cliente Fiel* preparou 3 dicas para você colocar em prática hoje mesmo! ??\nVenha conferir esse post em nosso blog sobre *3 Formas De Aumentar Pedidos Em Seu Delivery*\n\n???????? https://bit.ly/3fVk8P1'
+	
+	window.WAPI.sendMessageToID(enviarPara, msg);
+}
+
+async function iniciarContatoAiQFome(contato, nomeEstabelecimento){
+	
+	contato = replaceAll(contato, ' ', '');
+	contato = replaceAll(contato, '-', '');
+	contato = replaceAll(contato, '(', '');
+	contato = replaceAll(contato, ')', '');
+	contato = replaceAll(contato, '.', '');
+	nomeEstabelecimento = replaceAll(nomeEstabelecimento, "'", "");
+	
+	let enviarPara = '55' + contato + '@c.us'
+	let msg =  'Olá, Este é o Whatsapp do responsável pelo ' + nomeEstabelecimento + '?'
+	let msg2 = 'Meu nome é Bruno, falo da Cliente Fiel.\n\nGostaria de uns minutinhos da sua atenção para falar sobre a nossa ferramenta de automatização de pedidos.\n\nTemos *atendente virtual para o seu whatsapp, aplicativos personalizados, cardápio digital*, entre outras funcionalidades para auxiliar e otimizar o seu estabelecimento.\n\nAcha que alguma dessas funcionalidades faz sentido para o seu negócio hoje?'	
+	
+	localStorage.setItem(contato,JSON.stringify([msg2])); 
+	localStorage.setItem(contato+'nivel',0);
+
+
+	window.WAPI.sendMessageToID(enviarPara, msg);
+}
+
+async function enviarMVTecidosCliente(nomeEstabelecimento, cidade, contato){
+	
+	contato = replaceAll(contato, ' ', '');
+	contato = replaceAll(contato, '-', '');
+	contato = replaceAll(contato, '(', '');
+	contato = replaceAll(contato, ')', '');
+	contato = replaceAll(contato, '.', '');
+	nomeEstabelecimento = replaceAll(nomeEstabelecimento, "'", "");
+
+	
+	cidade = replaceAll(cidade, "'", "");
+	
+	let enviarPara = '55' + contato + '@c.us'
+	let msg1 = 'Oi, meu nome é Marco Túlio'
+	let msg21 = 'Quais tipos de tecidos voces trabalham?'
+	window.WAPI.sendMessageToID(enviarPara, msg1);
+	await sleep('5000');
+	window.WAPI.sendMessageToID(enviarPara, msg21);
+	
+	let msg2 = 'Voces compram tecidos no atacado, certo?'
+	let msg3 = 'Sou da *Central de Relacionamento da MV Tecidos*. *www.mvtecidos.com.br*. So um instante que retorno a conversar com vocês e mando um PDF de apresentação. Qual seu nome?'
+	let msg4 = 'A MV TECIDOS é especializada em estamparia digital e artigos em geral. Atendemos todos os estados do Brasil. Ficarei feliz em poder conversar melhor com você para entender a  sua demanda e oferecer os melhores tecidos com preços e condições especiais de pagamento.'
+	localStorage.setItem(contato,JSON.stringify([msg2, msg3, msg4])); 
+	localStorage.setItem(contato+'nivel',0);
+}
+
+async function fallowUpMVThais(contato){
+	data = new Date()
+	let enviarPara = contato
+
+	let msg1 = ""
+
+	if(data.getHours() < 13){
+		msg1 = 'Bom diaaa, tudo bem?'
+	}else {
+		msg1 = 'Oii, joia?'
+	}
+	
+	let msg2 = 'Estamos com muitas novidades na loja\n'
+	let msg3 = 'Acompanhe nossa empresa no instagram https://www.instagram.com/mvtecidos/'
+	let msg4 = 'Precisando de algum tecido, estarei a disposição para atender!'
+
+	window.WAPI.sendMessageToID(enviarPara, msg1);
+	await sleep(5000);
+	window.WAPI.sendMessageToID(enviarPara, msg2);
+	await sleep(5000);
+	window.WAPI.sendMessageToID(enviarPara, msg3);
+	await sleep(5000);
+	window.WAPI.sendMessageToID(enviarPara, msg4);
+}
+
+
+
+
+async function backup1(tipo, nome, contato){
+    contato = contato.replace(/([^\d])+/gim, '')
+    await window.WAPI.sendMessageToID(`55${contato}@c.us`, `Ola ${nome} tudo bem? Aqui é o Marco Túlio da MV Tecidos.`);
+    await sleep(5000);
+    await window.WAPI.sendMessageToID(`55${contato}@c.us`, `Voltei aqui depois de um tempo para saber se você está precisando de algum de nossos tecidos ou da estamparia digital.`);
+    await sleep(5000);
+    await window.WAPI.sendMessageToID(`55${contato}@c.us`, `Hoje temos representantes para todas as regiões do Brasil e também nosso Mostruario Online para atacado e varejo. Tudo isso você encontra em nosso site *https://bit.ly/PosContato1*`);
+    await sleep(5000);
+    await window.WAPI.sendMessageToID(`55${contato}@c.us`, `Lembrando também que nossa coleção Urban Inverno 2021 ja está disponivel *https://bit.ly/PreenchimentoUrban*`);
+    await sleep(10000);
+}
+
+
+async function distribuir(tipo, nome, cidade, contato, representante, minutos){
+     switch (tipo) {
+        case "cartaoVisitasSummer":
+                await window.WAPI.sendMessageToID(`55${contato}@c.us`, `Ola ${nome} tudo bem? Meu nome é Marco Túlio e vim confirmar se você conseguiu conhecer a coleção Summer da MV Tecidos. Tudo certinho?`);
+            break;
+
+	case "colecaoUrban":
+                await window.WAPI.sendMessageToID(`55${contato}@c.us`, `Ola ${nome} tudo bem? Meu nome é Marco Túlio e vim confirmar se você conseguiu conhecer a coleção Urban da MV Tecidos. Tudo certinho?`);
+            break;
+
+
+        case "buscarRepresentante":
+                await window.WAPI.sendMessageToID(`55${contato}@c.us`, `Ola ${nome} tudo bem? Meu nome é Marco Túlio e vim confirmar se você conseguiu representante na MV TECIDOS. Tudo certinho?`);
+            break;
+        case "CadastroLojaVirtual":
+                await cadastroSite(nome, cidade, contato, representante, minutos)
+            break;
+        case "PreenchimentoSite":
+                await preenchimentoSite(nome, cidade, contato, representante, minutos)
+            break;
+        case "possiveisClientesCONVERSANDO":
+                await fallowUpMV(nome, cidade, contato, representante, minutos)
+            break;
+        case "irB2B":
+                await window.WAPI.sendMessageToID(`55${contato}@c.us`, `Ola ${nome} tudo bem? Meu nome é Marco Túlio e vim confirmar se você conseguiu conhecer nosso mostruario online *http://mostruario.mvtecidos.com.br/*. Posso te ajudar em mais alguma coisa?`);
+            break;
+        case "irB2C":
+            await window.WAPI.sendMessageToID(`55${contato}@c.us`, `Ola ${nome} tudo bem? Meu nome é Marco Túlio e vim confirmar se você conseguiu conhecer nosso Outlet online *http://varejo.mvtecidos.com.br/*. Posso te ajudar em mais alguma coisa?`);
+		break;
+        case "Ola":
+            await window.WAPI.sendMessageToID(`55${contato}@c.us`, `Ola ${nome} tudo bem?`);
+        break;
+            
+     
+     }
+}
+
+async function fallowUpMV(nomeEstabelecimento, cidade, contato, minutos){
+	
+	contato = replaceAll(contato, ' ', '');
+	contato = replaceAll(contato, '-', '');
+	contato = replaceAll(contato, '(', '');
+	contato = replaceAll(contato, ')', '');
+	contato = replaceAll(contato, '.', '');
+	nomeEstabelecimento = replaceAll(nomeEstabelecimento, "'", "");
+
+	
+	cidade = replaceAll(cidade, "'", "");
+	
+	let enviarPara = '55' + contato + '@c.us'
+	let msg1 = 'Oi, tudo bem?'
+	let msg3 = 'Meu nome é Marco Túlio e trabalho na *www.instagram.com/mvtecidos*'
+	let msg2 = 'Gostaria de saber se vocês compram tecidos e quais tipos de tecidos vocês compram.'
+	let msg4 = 'Temos muito interesse em atende-los!'
+
+    const resp = await window.WAPI.sendMessageToID(enviarPara, msg1);
+    console.log("resp", resp)
+    if(resp){
+        await sleep(5000);
+        window.WAPI.sendMessageToID(enviarPara, msg2);
+        await sleep(5000);
+        window.WAPI.sendMessageToID(enviarPara, msg3);
+        await sleep(5000);
+        window.WAPI.sendMessageToID(enviarPara, msg4);
+        await sleep(minutos*60000);
+    }
+
+}
+
+
+async function enviarMVTecidos(nomeEstabelecimento, cidade, contato){
+	
+	contato = replaceAll(contato, ' ', '');
+	contato = replaceAll(contato, '-', '');
+	contato = replaceAll(contato, '(', '');
+	contato = replaceAll(contato, ')', '');
+	contato = replaceAll(contato, '.', '');
+	nomeEstabelecimento = replaceAll(nomeEstabelecimento, "'", "");
+
+	
+	cidade = replaceAll(cidade, "'", "");
+	
+	let enviarPara = '55' + contato + '@c.us'
+	let msg1 = ''
+	if(cidade){
+		msg1 = 'Olá, tudo bem? Esse é o whatsapp da empresa *' +  nomeEstabelecimento + '* de ' + cidade + '?'	
+	}else{
+		msg1 = 'Olá, tudo bem? Esse é o whatsapp da empresa *' +  nomeEstabelecimento + '?'	
+	}
+	
+	window.WAPI.sendMessageToID(enviarPara, msg1);
+
+
+	let msg2 = 'Meu nome é Marco Túlio, sou da *Central de Relacionamento da MV Tecidos*. *www.mvtecidos.com.br*\n\n*Quais tipo de tecidos vocês trabalham?*'
+	let msg3 = 'So um instante que retorno a conversar com vocês e mando um PDF de apresentação.\n\nVoces compram tecidos no atacado, certo?'
+	let msg4 = 'A MV TECIDOS é especializada em estamparia digital e artigos em geral. Atendemos todos os estados do Brasil. Ficarei feliz em poder conversar melhor com você para entender a  sua demanda e oferecer os melhores tecidos com preços e condições especiais de pagamento. Qual seu nome?'
+	localStorage.setItem(contato,JSON.stringify([msg2, msg3, msg4])); 
+	localStorage.setItem(contato+'nivel',0);
+}
+
+async function enviarMVConfeccao(nomeEstabelecimento, cidade, contato){
+	
+	contato = replaceAll(contato, ' ', '');
+	contato = replaceAll(contato, '-', '');
+	contato = replaceAll(contato, '(', '');
+	contato = replaceAll(contato, ')', '');
+	contato = replaceAll(contato, '.', '');
+	nomeEstabelecimento = replaceAll(nomeEstabelecimento, "'", "");
+
+	
+	cidade = replaceAll(cidade, "'", "");
+	
+	let enviarPara = '55' + contato + '@c.us'
+	let msg1 = 'Olá, tudo bem? Esse é o whatsapp da empresa *' +  nomeEstabelecimento + '* de ' + cidade + '?'
+	let msg2 = 'Meu nome é Marco Túlio, sou da empresa *MV Tecidos*. *www.mvtecidos.com.br*\n\nVocês são confecção própria ou revenda?'
+	
+	window.WAPI.sendMessageToID(enviarPara, msg1);
+	await sleep(5000);
+	window.WAPI.sendMessageToID(enviarPara, msg2);
+
+	let msg3 = 'Estamos procurando confecções próprias para apresentar a MV Tecidos. So um instante que retorno a conversar com vocês.\n\nVoces compram tecidos no atacado, certo?'
+
+	localStorage.setItem(contato,JSON.stringify([msg3])); 
+	localStorage.setItem(contato+'nivel',0);
+
+
+}
+
+
+async function enviarMVConfeccao(nomeEstabelecimento, cidade, contato){
+	
+	contato = replaceAll(contato, ' ', '');
+	contato = replaceAll(contato, '-', '');
+	contato = replaceAll(contato, '(', '');
+	contato = replaceAll(contato, ')', '');
+	contato = replaceAll(contato, '.', '');
+	nomeEstabelecimento = replaceAll(nomeEstabelecimento, "'", "");
+
+	
+	cidade = replaceAll(cidade, "'", "");
+	
+	let enviarPara = '55' + contato + '@c.us'
+	let msg1 = 'Olá, tudo bem? Esse é o whatsapp da empresa *' +  nomeEstabelecimento + '* de ' + cidade + '?'
+	let msg2 = 'Meu nome é Marco Túlio, sou da empresa *MV Tecidos*. *www.mvtecidos.com.br*\n\nVocês são confecção própria ou revenda?'
+	
+	window.WAPI.sendMessageToID(enviarPara, msg1);
+	await sleep(5000);
+	window.WAPI.sendMessageToID(enviarPara, msg2);
+
+	let msg3 = 'Estamos procurando confecções próprias para apresentar a MV Tecidos. So um instante que retorno a conversar com vocês.\n\nVoces compram tecidos no atacado, certo?'
+
+	localStorage.setItem(contato,JSON.stringify([msg3])); 
+	localStorage.setItem(contato+'nivel',0);
+
+
+}
+
+async function noticia1MV(nomeEstabelecimento, cidade, contato){
+	
+	contato = replaceAll(contato, ' ', '');
+	contato = replaceAll(contato, '-', '');
+	contato = replaceAll(contato, '(', '');
+	contato = replaceAll(contato, ')', '');
+	contato = replaceAll(contato, '.', '');
+	nomeEstabelecimento = replaceAll(nomeEstabelecimento, "'", "");
+
+	
+	cidade = replaceAll(cidade, "'", "");
+	
+	let enviarPara = '55' + contato + '@c.us'
+	let msg1 = 'Bom dia ' + nomeEstabelecimento + ', tudo bem?'	
+	let msg2 = '*Nós da MV TECIDOS, sabemos que para ser diferente, precisamos fazer melhor!*\n\n*Por isso, preparamos uma série de vídeos com relatos reais de nossos clientes.*\n\n*Tudo isso, para que você não tenha dúvida de que nós somos a sua melhor opção.*\n\n#SerDiferenteFazerMelhor #MVTECIDOS\n\n*https://www.instagram.com/tv/CDbw-CdAokb/?igshid=8whf48cgs34q*'
+	window.WAPI.sendMessageToID(enviarPara, msg1);
+	await sleep(5000);
+	window.WAPI.sendMessageToID(enviarPara, msg2);
+}
+
+async function noticia2MV(nomeEstabelecimento, cidade, contato){
+	
+	contato = replaceAll(contato, ' ', '');
+	contato = replaceAll(contato, '-', '');
+	contato = replaceAll(contato, '(', '');
+	contato = replaceAll(contato, ')', '');
+	contato = replaceAll(contato, '.', '');
+	nomeEstabelecimento = replaceAll(nomeEstabelecimento, "'", "");
+
+	
+	cidade = replaceAll(cidade, "'", "");
+	
+	let enviarPara = '55' + contato + '@c.us'
+	let msg2 = 'Ola, tudo bem? Hoje a *MV Tecidos* começou a fazer o lançamento da *Coleção Classic* no Instagram *https://bit.ly/ColeçãoClassicMVTecidos*'
+	let msg3 = '*Saiu o 1° vídeo da Coleção Classic!!*\n\n*Uma coleção atemporal, Classic foi inspirada em uma moda feita para durar, simples e sofisticada, o contraste entre o clássico e o moderno resultam em lindas estampas, repletas de elementos apurados e irreverentes.*\n\n*A mistura de folhagens, florais, texturas e efeitos demostram riqueza em detalhes. As cores da coleção revelam uma combinação entre tons vivos e suaves.*\n\n*https://bit.ly/ColeçãoClassicMVTecidos*\n\n#MVTECIDOS #ColeçãoClassic'
+	window.WAPI.sendMessageToID(enviarPara, msg2);
+	await sleep(10000);
+	window.WAPI.sendMessageToID(enviarPara, msg3);
+}
+
+async function qualTipoTecido(nomeEstabelecimento, cidade, contato){
+	
+	contato = replaceAll(contato, ' ', '');
+	contato = replaceAll(contato, '-', '');
+	contato = replaceAll(contato, '(', '');
+	contato = replaceAll(contato, ')', '');
+	contato = replaceAll(contato, '.', '');
+	nomeEstabelecimento = replaceAll(nomeEstabelecimento, "'", "");
+
+	
+	cidade = replaceAll(cidade, "'", "");
+	
+	let enviarPara = '55' + contato + '@c.us'
+	let msg1 = 'Oii, joia? Qual tipo de tecidos vocês trabalham?'	
+	window.WAPI.sendMessageToID(enviarPara, msg1);
+}
+
+
+async function compraTecidosMV(nomeEstabelecimento, cidade, contato){
+	
+	contato = replaceAll(contato, ' ', '');
+	contato = replaceAll(contato, '-', '');
+	contato = replaceAll(contato, '(', '');
+	contato = replaceAll(contato, ')', '');
+	contato = replaceAll(contato, '.', '');
+	nomeEstabelecimento = replaceAll(nomeEstabelecimento, "'", "");
+
+	
+	cidade = replaceAll(cidade, "'", "");
+	
+	let enviarPara = '55' + contato + '@c.us'
+	let msg1 = 'Vocês compram tecidos no atacado?'	
+	window.WAPI.sendMessageToID(enviarPara, msg1);
+}
+
+async function colecaoClassicMV(nomeEstabelecimento, cidade, contato){
+	
+	contato = replaceAll(contato, ' ', '');
+	contato = replaceAll(contato, '-', '');
+	contato = replaceAll(contato, '(', '');
+	contato = replaceAll(contato, ')', '');
+	contato = replaceAll(contato, '.', '');
+	nomeEstabelecimento = replaceAll(nomeEstabelecimento, "'", "");
+
+	
+	cidade = replaceAll(cidade, "'", "");
+	
+	let enviarPara = '55' + contato + '@c.us'
+	let msg1 = 'Boa tarde equipe *'+nomeEstabelecimento +'*, tudo bem? Aqui é Marco Tulio da *MV Tecidos*.'
+	let msg2 = 'Venho avisar que já está sendo publicada em nosso instagram a *Coleção Classic* da MV Tecidos!!\n\n*Confira em https://bit.ly/ColeçãoClassicMVTecidos*\n\n#MVTECIDOS #ColeçãoClassic'	
+	window.WAPI.sendMessageToID(enviarPara, msg1);
+	await sleep(20000);
+	window.WAPI.sendMessageToID(enviarPara, msg2);
+}
+
+async function preenchimentoSite(nomeEstabelecimento, cidade, contatoOriginal, nomeContato, representante = "nenhum", time = 5){
+    console.log("||>>>> INICIAR >>>",contatoOriginal)
+	let contato = '55' + contatoOriginal + '@c.us'
+
+	let comprimento = `Oi, ${nomeContato}. Identificamos seu preenchimento na loja virtual (loja.mvtecidos.com.br), você permite que eu envie as novidades de coleções, promoções e novos produtos da *MV TECIDOS* aqui nesse whatsapp?`
+	const resp = await window.WAPI.sendMessageToID(contato, comprimento);
+
+    if(resp === true){
+        await sleep(5000);
+        window.WAPI.sendMessageToID(contato, 'Meu nome é Marco Túlio e estou aqui também para ajudar e tirar alguma dúvida sua.');
+        await sleep(time*1000);
+    }
+    console.log("||>>>> FINALIZAR >>>", contatoOriginal)
+}
+
+
+async function cadastroSite(nomeEstabelecimento, cidade, contatoOriginal, nomeContato, representante = "nenhum", time = 5){
+    console.log("||>>>> INICIAR >>>",contatoOriginal)
+	let contato = '55' + contatoOriginal + '@c.us'
+
+	let comprimento = `Oi, ${nomeContato}. Identificamos seu cadastro em nossa loja virtual (loja.mvtecidos.com.br) e não foi realizado nenhuma compra. Você ficou com alguma dificuldade, dúvida ou não encontrou algum tecido que queira?`
+	const resp = await window.WAPI.sendMessageToID(contato, comprimento);
+
+    if(resp === true){
+        await sleep(5000);
+        window.WAPI.sendMessageToID(contato, 'Meu nome é Marco Túlio e estou aqui para ajudar.');
+        await sleep(time*1000);
+    }
+    console.log("||>>>> FINALIZAR >>>", contatoOriginal)
+}
+
+
+function buscarContatoRepresentante(nome){
+    var mensagem = ''
+    switch (nome) {
+        case "nenhum":
+                mensagem+=``
+            break;
+        case 'Larissa':
+                mensagem+=`*Contato Representante Larissa*: _https://bit.ly/RepresentanteMVLarissa_`
+            break;
+        case 'Polyana':
+                mensagem+=`*Contato Representante Poliana*: _https://bit.ly/RepresentanteMVPolyana_`
+            break;
+        case 'Thais':
+                mensagem+=`*Contato Representante Thais*: _https://bit.ly/RepresentanteMVThais_`
+            break;
+        case 'WELKER WERNERSBACH LIPAUS':
+                mensagem+=`*Contato Representante Welker*: _https://bit.ly/RepresentanteMVWelker_`
+            break;
+        case 'BRUNO HENRIQUE OLIVEIRA VALERIANO':
+                mensagem+=`*Contato Representante Bruno Henrique*: _https://bit.ly/RepresentanteMVBruno_`
+            break;
+        case 'TACIANO AUGUSTO MUNDIM PEQUENO MARTINS':
+                mensagem+=`*Contato Representante Taciano*: _https://bit.ly/RepresentanteMVTaciano_`
+            break;
+        case 'GUILHERME GRASTIQUINI CAMARGOS':
+                mensagem+=`*Contato Representante Guilherme*: _https://bit.ly/RepresentanteMVGuilherme_`
+            break;
+        case 'MATHEUS ANTONIO DA CRUZ':
+                mensagem+=`*Contato Representante Matheus*: _https://bit.ly/RepresentanteMVMatheuzinho_`
+            break;
+        default:
+                mensagem+=`*Chame seu representante e conheça nossa loja virtual*: _https://bit.ly/ConhecaNossaLojaVirtual_`
+        }
+    return mensagem
+    
+}
+async function correcaoRepresentante(nomeEstabelecimento, cidade, contatoOriginal, nomeContato, representante = "nenhum", time = 5){
+    console.log("||>>>> INICIAR >>>",contatoOriginal)
+	let contato = '55' + contatoOriginal + '@c.us'
+
+	let comprimento = `Oi, ${nomeContato}. Vou te mandar um novo contato de representante`
+	const resp = await window.WAPI.sendMessageToID(contato, comprimento);
+
+    if(resp === true){
+        await sleep(5000);
+        let mensagem = buscarContatoRepresentante(representante)
+        
+        window.WAPI.sendMessageToID(contato, mensagem);
+        await sleep(time*1000);
+    }else{
+
+    }
+    console.log("||>>>> FINALIZAR >>>", contatoOriginal)
+}
+
+
+async function newsClienteFiel(contato, site){
+    console.log("||>>>> INICIAR >>>",contato)
+
+	mensagem = `Já criou o cupom de desconto do seu estabelecimento para a Black Friday?\n\nNo sistema administrativo, disponibilizamos imagens personalizadas Black Friday para 3 tipos de cupom:\n\n1️⃣ BLACKFRIDAY10%\n2️⃣ BLACKFRIDAY10R$\n3️⃣ BLACKFRIDAYFRETE\n\nCrie o cupom em Menu ➡️ Cadastros ➡️ Cupom de Incentivo ➡️ Novo cupom \n\nDivulgue a _*imagem ( http://${site}/downloads/imagensTematicas )*_ nas suas redes sociais e envie notificação para seus clientes contando da promoção! \n\nPara enviar notificação, acesse o sistema administrativo pelo link: \nMenu (canto esquerdo da tela) ➡️ Enviar notificação*\n\n*As notificações são enviadas para as(os) clientes que tem o aplicativo do seu estabelecimento instalado no celular.\n\nQualquer dúvida, conte conosco! 🤝😊`
+
+    window.WAPI.sendImage(base64, contato ,"Black Friday")
+    await sleep(3000);
+    window.WAPI.sendMessageToID(contato, mensagem);
+    await sleep(3000);
+
+    console.log("||>>>> FINALIZAR >>>", contato)
+}
+
+var numeroEnviadoMSG
+
+
+async function sendNewsletter(nome, contatoOriginal, time = 60){
+    console.log("||>>>> INICIAR >>>",nome, contatoOriginal)
+	let contato = '55' + contatoOriginal + '@c.us'
+
+    const msg = `Bom dia, ${nome}! ☀️🌻\nSemana começando com o pé direito, repleta de dicas e informações para agregar ao seu negócio e expandir ainda mais seu conhecimento sobre o mundo da moda!\n\nJá foram conferir a newsletter da semana? Verifiquem a caixa de *spam* ou *promoções* e lembrem-se de colocar nosso contato na sua agenda! 🥰`
+	const resp = await window.WAPI.sendMessageToID(contato, msg);
+    // frase = Math.floor(Math.random() * (6 - 1)) + 1;
+
+    // comprimento=`Oii, tudo bem?`
+	
+	// const resp = await window.WAPI.sendMessageToID(contato, newsletter.cabecalho.replace("|NOME|", nome));
+
+    // if(resp === true){
+        await sleep(5000);
+
+    //     for (let index = 0; index < newsletter.imgs.length; index++) {
+    //         const news = newsletter.imgs[index];
+    //         window.WAPI.sendImage(news.base64, numeroEnviadoMSG ,"news", news.link)
+    //         // window.WAPI.sendImage(news.base64, numeroEnviadoMSG ,"news")
+    //         await sleep(5000);
+    //     }
+
+    //     window.WAPI.sendMessageToID(contato, newsletter.rodape);
+        
+    //     await sleep(time*1000);
+    // }else{
+    //     console.log("NAO EXISTE")
+
+    // }
+    console.log("||>>>> FINALIZAR >>>", nome, contatoOriginal)
+}
+
+//async function newsMV(nomeEstabelecimento, cidade, contatoOriginal, nomeContato, representante = "nenhum", time = 60){
+async function newsMV(contatoOriginal, tipo ,time = 60, nomeCliente = ''){
+    console.log("||>>>> INICIAR >>>",contatoOriginal)
+	let contato = '55' + contatoOriginal.replace(/\D/gim, '') + '@c.us'
+
+    if(nomeCliente === 'sem nome'){
+        nomeCliente = ''
+    }
+    let comprimento=`Bom dia ${nomeCliente}.`
+
+	
+	const resp = await window.WAPI.sendMessageToID(contato, comprimento);
+	console.log('resp', resp)
+
+    if(resp === true){
+        await sleep(5000);
+        let nome = ''
+        let mensagem = ''
+
+        switch (tipo) {
+            case 'tiktok':
+                nome = 'tiktok'
+                mensagem = `⚠️⚠️ *NOVIDADE* ⚠️⚠️\n\nOláa... Lançamos agora nosso perfil na plataforma TikTok. Acompanha a gente por lá também e veja vídeos como esse que mandei pra você la na plataforma. \n\nAcesse: https://www.tiktok.com/@mvtecidos`
+            break;
+            case 'avisonewsletter':
+                nome = '5MINUTOSLEITURA'
+                mensagem = `⚠️⚠️ *MV NEWS NO AR!* ⚠️⚠️ \n\nTODA TERÇA ÀS 9 HORAS DA MANHÃ.\n\nConfiram sua caixa de entrada do e-mail ou SPAM e leia a nossa curadoria da semana.\n\nNão é inscrito ainda? Não perca tempo! A newsletter é GRATUITA (https://bit.ly/InscreverNewsLetter).`
+            break;
+            case 'newsletter':
+                nome = '5MINUTOSLEITURA'
+                mensagem = `⚠️⚠️ 5 MINUTOS DE LEITURA ⚠️⚠️\n\nÉ o que você precisará fazer para se atualizar sobre o mundo da moda de forma GRATUITA!\n\nNão, isso não é uma pegadinha. Vai funcionar da seguinte maneira: a equipe da MV Tecidos fará uma curadoria das notícias mais importantes e relevantes para você e para o seu negócio, reunirá em um único email que será enviado semanalmente e você só precisa ler. Nossa newsletter sobre moda! 🧵🪡\n\nSerá uma leitura rápida e objetiva, mas sempre deixaremos o link com a matéria completa para você ler na íntegra quando for do seu interesse, ok?\n\nGostou da ideia? Então não perde tempo e cadastre-se através desse link abaixo ⬇️\n\nhttps://mvtecidos.us1.list-manage.com/subscribe?u=812faa08e237d7f2e40c4142a&id=52b10a0e52`
+                break;
+            case 'mostruario':
+                nome = 'MOSTRUARIOMV'
+                mensagem = `⚠️⚠️ MOSTRUARIO ONLINE ⚠️⚠️\n\nVocê já conhece o mostruário online da MV Tecidos? \n\nAgora você tem acesso imediato a todas as novidades, promoções, tecidos, estampas e bases disponíveis\n\nEntre agora e solicite seu acesso para visualizar valores e as estampas da estamparia digital.\n\nhttps://mvtecidos.meuspedidos.com.br/solicitar-acesso\n\nCaso você não consiga clicar no link, me mande uma mensagem que ficará disponível. 🥰`
+                break;
+            case 'aquarela':
+                nome = 'COLEÇÃOAQUARELA'
+                mensagem = `⚠️⚠️ COLEÇÃO AQUARELA ⚠️⚠️\n\nA coleção Aquarela foi desenvolvida inspirada na tendência do verão 22, que consiste em estampas feitas com pinceladas e com um toque manual. Cores suaves transmitem muita leveza e frescor, já as cores mais vivas trazem toda a energia e o calor do verão, trazendo contraste e harmonia para a coleção. Estampas como florais aquarelados, repletos de nuances maravilhosas vão deixar a estação mais alegre do ano ainda mais exuberante.\n\n⚠️ Lançamento oficial é hoje no Instagram (@mvtecidos) e no site (https://mvtecidos.meuspedidos.com.br/?categoria=2202966&representada=499691)\n\n⚠️ E nossa LIVE no Instagram explicando ainda mais nossa coleção será quinta, dia 20/05. Ative as notificações e não perca!\n\nCaso você não consiga clicar no link, me mande uma mensagem que ficará disponível. 🥰`
+                break;
+        
+            default:
+                break;
+        }
+
+        window.WAPI.sendImage(base64, numeroEnviadoMSG , nome)
+        console.log(numeroEnviadoMSG)
+
+        if(mensagem != ''){
+            await sleep(10000);
+            window.WAPI.sendMessageToID(contato, mensagem);
+        }
+        
+        
+        await sleep(time*1000);
+    }else{
+
+    }
+    console.log("||>>>> FINALIZAR >>>", contatoOriginal)
+}
+
+const contato = WAPI.getAllChats()
+var j = 1
+
+function meusChats(){
+    WAPI.getAllChats().forEach(e => {
+        if(e.id && e.id.server === "c.us"){
+            data = new Date(new Date(WAPI.getChat(e.id._serialized).msgs._last.__x_t).getTime() * 1000)
+            
+            nome = e.name ? e.name : e.contact.pushname ? e.contact.pushname : 'sem nome'
+
+            console.log(nome, " || ", e.id._serialized, " || ", data.getDate()+"/"+data.getMonth()+"/"+data.getFullYear())
+        }
+    })
+}
+
+function mandarAosPoucos(tempo, qtd = 50){
+	
+	while(contato[contato.length-j].isGroup == true){
+	    j++
+	}	
+	fallowUpMVThais(contato[contato.length-j].id._serialized)
+	j++
+	qtd--
+
+	setInterval(() => {
+    		
+		if(qtd >=0 ){
+			while(contato[contato.length-j].isGroup == true){
+	    			j++
+			}
+		fallowUpMVThais(contato[contato.length-j].id._serialized)
+		j++
+		qtd--
+		}else{console.log("terminou")}
+
+	}, tempo*1000)
+}
+
+
 
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
