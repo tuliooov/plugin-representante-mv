@@ -1,0 +1,121 @@
+<html>
+<head>
+	<meta charset="UTF-8">
+	<style>
+		a.button2{
+		display:inline-block;
+		padding:0.35em 1.2em;
+		border:0.1em solid #1bbd58;
+		margin:0 0.3em 0.3em 0;
+		border-radius:0.12em;
+		box-sizing: border-box;
+		text-decoration:none;
+		font-family:'Roboto',sans-serif;
+		font-weight:300;
+		color:#1bbd58;
+		text-align:center;
+		transition: all 0.2s;
+		}
+		
+		a.button2:hover{
+		color:white;
+		background-color:#1bbd58;
+		}
+		
+		@media all and (max-width:30em){
+		 a.button2{
+		display:block;
+		margin:0.4em auto;
+		 }
+		}
+
+		a.button1{
+		display:inline-block;
+		padding:0.35em 1.2em;
+		border:0.1em solid #bc2bff;
+		margin:0 0.3em 0.3em 0;
+		border-radius:0.12em;
+		box-sizing: border-box;
+		text-decoration:none;
+		font-family:'Roboto',sans-serif;
+		font-weight:300;
+		color:#bc2bff;
+		text-align:center;
+		transition: all 0.2s;
+		}
+		
+		a.button1:hover{
+		color:white;
+		background-color:#bc2bff;
+		}
+		
+		@media all and (max-width:30em){
+		 a.button1{
+		display:block;
+		margin:0.4em auto;
+		 }
+		}
+
+		p,
+		label {
+			font: 1rem 'Fira Sans', sans-serif;
+		}
+
+		input {
+			margin: .4rem;
+		}
+
+		
+		</style>
+</head>
+<body style="width: 300px; height: 130px; text-align:center; background-color: #f6f6f6;">
+	<br>
+	<img src="../logo/128.png" style="width:70px"/>
+	<h1 style="    font-weight: bold;    font-family: 'Open Sans', sans-serif;    text-transform: uppercase;
+">MV TECIDOS</h1>
+	<!-- <span style="font-size: 18px;">Versão: <span id="verspan">&nbsp;</span></span> -->
+	<!-- <br><br> -->
+	<span style="font-size: 12px;">Envio de mensagens automaticas</span>
+	<br/>
+
+	<div>
+		<label for="tempo">Tempo (s) msg</label>
+		<input type="number" id="tempo" value="5" name="tempo"  />
+	</div>
+	<div>
+		<input type="file" id="files" name="files" />
+		<textarea id="mensagemParaEnviar" rows="5" style=""></textarea>
+		<textarea id="base64" rows="5" style="display:none"></textarea>
+	</div>
+
+	<div>
+		<img src="" style="max-height: 200px;" id="imagemPronta"/>
+	</div>
+
+	<div>
+		<input type="checkbox" id="teste" name="teste"
+				>
+		<label for="teste">Teste</label>
+	</div>
+	
+	<div>
+		<input type="checkbox" id="naoHoje" name="naoHoje">
+		<label for="naoHoje">Apenas os que não conversei hoje.</label>
+	</div>
+
+	<div>
+		<select name="select" id="quemVouMandar">
+			<option value="jaConversei" selected>Ja conversei</option>
+			<option value="jaConverseiContatoSalvo">Ja Conversei + Contato Salvo</option>
+		</select>
+	</div>
+
+	<br><br>
+
+	<a href="#" class="button1" id="buttonTodos">Enviar (Todos)</a>
+	
+
+</body>
+
+<script src="popup.js"></script>
+</html>
