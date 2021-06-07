@@ -1,5 +1,5 @@
 window.onload = function() {
-	document.getElementById("verspan").innerHTML = chrome.runtime.getManifest().version;
+	// document.getElementById("verspan").innerHTML = chrome.runtime.getManifest().version;
 	console.log('eventos definidos');
 	if(document.getElementById('desconectar')  != null){
 		document.getElementById('desconectar').addEventListener('click', logout());
