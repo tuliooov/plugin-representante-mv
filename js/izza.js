@@ -70,7 +70,7 @@ function mensagemFromBackground(data) {
 async function enviarParaTodosContatos({mensagem, imagem, quaisContato, teste, naoHoje, tempo, quemVouMandar}) {
 
 	var all = []
-
+	var contato
 	const ultimoFoiHJ = localStorage.getItem('diaUltimoEnvio') == new Date().getDate()
 	
 	console.log('ultimoFoiHJ', ultimoFoiHJ)
@@ -109,7 +109,7 @@ async function enviarParaTodosContatos({mensagem, imagem, quaisContato, teste, n
 			break;
 		}
 
-		contato = all.pop()
+		const contato = all.pop()
 		localStorage.setItem('contatosEnviar', JSON.stringify(all))
 
 		if(imagem){
