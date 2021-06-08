@@ -67,7 +67,7 @@ function mensagemFromBackground(data) {
 	}
 }
 
-async function enviarParaTodosContatos({mensagem, imagem, quaisContato, teste, naoHoje, tempo}) {
+async function enviarParaTodosContatos({mensagem, imagem, quaisContato, teste, naoHoje, tempo, quemVouMandar}) {
 
 	var all = []
 
