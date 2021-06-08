@@ -114,13 +114,15 @@ async function enviarParaTodosContatos({mensagem, imagem, quaisContato, teste, n
 
 		if(imagem){
 			if(teste) console.log('enviouImagem', contato)
-			else window.WAPI.sendImage(imagem, contato.id._serialized ,'imagemMV')
+			else window.WAPI.sendImage(imagem, contato ,'imagemMV')
+			// else window.WAPI.sendImage(imagem, contato.id._serialized ,'imagemMV')
 			
 			await sleep(3000)
 		}
 
 		if(teste) console.log('enviouMensagem', contato)
-		else window.WAPI.sendMessageToID(contato.id._serialized, mensagem);
+		else window.WAPI.sendMessageToID(contato, mensagem);
+		// else window.WAPI.sendMessageToID(contato.id._serialized, mensagem);
 		
 		await sleep(tempo * 1000)
 
