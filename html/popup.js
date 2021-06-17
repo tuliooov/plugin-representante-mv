@@ -12,7 +12,6 @@ window.onload = function() {
 
 function login() {
 	console.log('login');
-	sessionStorage.setItem('chaveAcesso', '1212');
 	document.getElementById('loginTxt').disabled = true;
 	document.getElementById('senhaTxt').disabled = true;
 	document.getElementById('conectar').style.display = 'none';
@@ -22,7 +21,6 @@ function login() {
 
 function logout() {
 	console.log('logout');
-	sessionStorage.setItem('chaveAcesso', null);
 	document.getElementById('loginTxt').disabled = false;
 	document.getElementById('senhaTxt').disabled = false;
 	document.getElementById('conectar').style.display = 'block';
@@ -41,7 +39,9 @@ document.getElementById("buttonTodos").addEventListener("click",function(){
 		naoHoje: document.getElementById('naoHoje')?.value,
 		quemVouMandar: document.getElementById('quemVouMandar')?.value,
 		tempo: document.getElementById('tempo').value,
+		quantidade: document.getElementById('quantidade').value,
 	});
+	
 });
 
 // document.getElementById("buttonWhatsapp").addEventListener("click",function(){
@@ -65,6 +65,7 @@ if (window.File && window.FileReader && window.FileList && window.Blob) {
 		var binaryData = e.target.result;
 		//Converting Binary Data to base 64
 		var base64String = window.btoa(binaryData);
+		console.log('base64String', base64String)
 		//showing file converted to base64
 		var base = "data:image/jpeg;base64,"+base64String;
 		document.getElementById('base64').value = base
@@ -90,13 +91,28 @@ if (window.File && window.FileReader && window.FileList && window.Blob) {
 		//Converting Binary Data to base 64
 		var base64String = window.btoa(binaryData);
 		//showing file converted to base64
-		var base = "data:image/jpeg;base64,"+base64String;
-		document.getElementById('base64').value = base
-		document.getElementById('imagemPronta').src = base
-		// alert('File converted to base64 successfuly!\nCheck in Textarea');
+		
+		if(document.getElementById("tipoArquivo").value === 'Video'){
+			var base = "data:video/mp4;base64,"+base64String;
+			document.getElementById('base64').value = base
+			document.getElementById('videoPronto').src = base
+			document.getElementById('videoPronto').style.display = 'block'
+			document.getElementById('imagemPronta').style.display = 'none'
+		}else if(document.getElementById("tipoArquivo").value === 'Imagem'){
+			var base = "data:image/jpeg;base64,"+base64String;
+			document.getElementById('base64').value = base
+			document.getElementById('imagemPronta').src = base
+			document.getElementById('videoPronto').style.display = 'none'
+			document.getElementById('imagemPronta').style.display = 'block'
+		}
+
 	  };
 	})(f);
 	// Read in the image file as a data URL.
 	reader.readAsBinaryString(f);
+  }
+
+  function tipoArquivo(){
+
   }
   

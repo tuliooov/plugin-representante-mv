@@ -1,14 +1,11 @@
 
 var varWindow;
-var urlSistema =  "https://sistema.appclientefiel.com.br/web/index/izza";
-//var urlSistema =  "http://52.86.148.125:8080/ClienteFiel/web/index/izza";
 
 
 
 (function() {
 	
-	console.log('Iniciando izza.js');
-	
+	console.log('Iniciando MV Bot.js');
 	setTimeout(init,6000);
 
 })();
@@ -37,9 +34,6 @@ function mensagemFromBackground(data) {
 		  case "logado":
 		    criarDivLogada();
 		    break;
-		  case "deslogado":
-		    criarDivDesLogada();
-		    break;
 		  case "pausado":	  
 		  	criarDivPausada();
 		    break;
@@ -53,9 +47,6 @@ function mensagemFromBackground(data) {
 		  case "script":
 		  	executarScript(data);
 		    break;
-		  case "atualizar":
-		  	window.location.href=window.location.href;
-		    break;
 		  case "aguardarmensagem":
 		  	aguardarMensagem();
 		  	break;
@@ -67,7 +58,16 @@ function mensagemFromBackground(data) {
 	}
 }
 
-async function enviarParaTodosContatos({mensagem, imagem, quaisContato, teste, naoHoje, tempo, quemVouMandar}) {
+async function enviarParaTodosContatos({
+	mensagem, 
+	imagem, 
+	quaisContato, 
+	teste, 
+	naoHoje, 
+	tempo, 
+	quemVouMandar,
+	quantidade,
+}) {
 
 	var all = []
 	var contato
@@ -87,12 +87,14 @@ async function enviarParaTodosContatos({mensagem, imagem, quaisContato, teste, n
 		
 		console.log('allContacts', all)
 		var numeros = []
-		for (let index = 0; index < all.length; index++) {
+		let qtdAdicionada = 0;
+		for (let index = all.length-1; index >= 0; index--) {
 			const contato = all[index];
-			if(contato && contato?.id && contato.id.server === "c.us"){
+			if( (qtdAdicionada < quantidade) && contato && contato?.id && contato.id.server === "c.us"){
 				const ultimaCv = new Date(new Date(WAPI.getChat(contato.id._serialized)?.msgs?._last?.__x_t).getTime() * 1000)
 				if(ultimaCv.getDate() != new Date().getDate() || naoHoje == false){
 					numeros.push(contato.id._serialized)
+					qtdAdicionada++
 				}
 			}
 		}
@@ -103,29 +105,32 @@ async function enviarParaTodosContatos({mensagem, imagem, quaisContato, teste, n
 	console.log('enviarParaTodosContatosIzza', mensagem, imagem)
 
 	while(true){
-		all = JSON.parse(localStorage.getItem('contatosEnviar'))
+		if(localStorage.getItem('pause')){
+			await sleep(1000)
+		}else{
+			all = JSON.parse(localStorage.getItem('contatosEnviar'))
 
-		if(all.length == 0){
-			break;
-		}
+			if(all.length == 0){
+				break;
+			}
 
-		const contato = all.pop()
-		localStorage.setItem('contatosEnviar', JSON.stringify(all))
+			const contato = all.pop()
+			localStorage.setItem('contatosEnviar', JSON.stringify(all))
 
-		if(imagem){
-			if(teste) console.log('enviouImagem', contato)
-			else window.WAPI.sendImage(imagem, contato ,'imagemMV')
-			// else window.WAPI.sendImage(imagem, contato.id._serialized ,'imagemMV')
+			if(imagem){
+				if(teste) console.log('enviouImagem', contato)
+				else window.WAPI.sendImage(imagem, contato ,'imagemMV')
+				// else window.WAPI.sendImage(imagem, contato.id._serialized ,'imagemMV')
+				
+				await sleep(3000)
+			}
+
+			if(teste) console.log('enviouMensagem', contato)
+			else window.WAPI.sendMessageToID(contato, mensagem);
+			// else window.WAPI.sendMessageToID(contato.id._serialized, mensagem);
 			
-			await sleep(3000)
+			await sleep(tempo * 1000)
 		}
-
-		if(teste) console.log('enviouMensagem', contato)
-		else window.WAPI.sendMessageToID(contato, mensagem);
-		// else window.WAPI.sendMessageToID(contato.id._serialized, mensagem);
-		
-		await sleep(tempo * 1000)
-
 	}
 	
    
@@ -139,8 +144,6 @@ function aguardarMensagem() {
 function executarScript(data) {		
 	console.log("Executando script do servidor." );	
 	eval(data.mensagem);
-	//setCookie("WHATSAPPLOGADO", numeroWhatsLogado(), 999);
-	//setCookie("WHATSAPPFUNCIONARIOS", numeroWhatsFuncionarios(), 999);
 }
 
 function setCookie(name,value,days) {
@@ -166,9 +169,8 @@ function enviarMensagem(data) {
 }
 
 function criarDivPausada() {
-	//var telaWhatsapp = document.getElementById("app")
-	//telaWhatsapp.style.top = "40px";
-	document.getElementById('divIzza').innerHTML = 'Izza Bot está com o envio de mensagens pausado.&nbsp;&nbsp; ';
+	localStorage.setItem('pause', true);
+	document.getElementById('divIzza').innerHTML = 'MV Bot está com o envio de mensagens pausado.&nbsp;&nbsp; ';
 	document.getElementById('divIzza').style.backgroundColor = '#f6c23e';
 	var button = document.createElement('button');          
 	var bText = document.createTextNode('Iniciar Atendimento');          
@@ -178,9 +180,8 @@ function criarDivPausada() {
 }
 
 function criarDivLogada() {
-	//var telaWhatsapp = document.getElementById("app")
-	//telaWhatsapp.style.top = "40px";
-	document.getElementById('divIzza').innerHTML = 'Izza Bot pronta para reponder às suas mensagens.&nbsp;&nbsp; ';
+	localStorage.removeItem('pause');
+	document.getElementById('divIzza').innerHTML = 'MV Bot pronta para reponder às suas mensagens.&nbsp;&nbsp; ';
 	document.getElementById('divIzza').style.backgroundColor = '#1cc88a';
 	var button = document.createElement('button');          
 	var bText = document.createTextNode('Pausar Atendimento');          
@@ -189,31 +190,6 @@ function criarDivLogada() {
 	document.getElementById('divIzza').appendChild(button);
 }
 
-
-function criarDivDesLogada() {
-	//var telaWhatsapp = document.getElementById("app")
-	//telaWhatsapp.style.top = "40px";
-	document.getElementById('divIzza').innerHTML = 'Izza Bot não conectada.&nbsp;&nbsp; ';
-	document.getElementById('divIzza').style.backgroundColor = '#e74a3b';
-	var button = document.createElement('button');          
-	var bText = document.createTextNode('Fazer Login ');   
-	button.appendChild(bText);        
-	button.onclick=login;
-	document.getElementById('divIzza').appendChild(button);
-}
-
-/*function criarDivOpcoesChat(){
-	widthScreen = $("#main").children[4].offsetWidth;
-	heightScreen = $("#main").children[4].offsetHeight;
-	var divScreen = document.createElement('div');  
-	divScreen.style.width = widthScreen
-	divScreen.style.height = heightScreen
-
-	var h3 =  document.createElement( 'H3' );
-	h3.innerHTML = 'Disparo de Mensagens';
-	h3.style.margin = '25px';
-	divScreen.appendChild(h3);
-}*/
 
 function proccessMessage(data) {
 	console.log('Mensagem recebida: '+ data.length);
@@ -224,24 +200,19 @@ function proccessMessage(data) {
 }
 
 
-function login() {
-	//varWindow = window.open (urlSistema, 'popup');
- 	window.open(urlSistema, "_blank", "toolbar=yes,scrollbars=yes,resizable=yes,top=0,left=500,width=400,height=600");
-}
 
 function start() {
-	window.serverMessage({ tipo: "start", chaveAcesso : ''});
-	window.location.href=window.location.href
+	window.serverMessage({ tipo: "start"});
 }
 
 function pause() {
-	window.serverMessage({ tipo: "pause", chaveAcesso : ''});
+	window.serverMessage({ tipo: "pause"});
 }
 
 function logout(silent) {
 	if (!silent) {
-		if (confirm('Tem certeza que deseja desativar a Izza?')) {
-			alert('Você parou a Izza!'); 
+		if (confirm('Tem certeza que deseja desativar o MV Bot?')) {
+			alert('Você parou o MV Bot!'); 
 			window.serverMessage({tipo : "logout"});
 		}
 	} else {
@@ -249,147 +220,6 @@ function logout(silent) {
 	}
 }
 
-//verifica se os itens ja foram criados. Se nao cria 
-/*function colocarIconIzzaNoWhatsapp(){	
-	var linkBootstrap = null
-	var head = null
-	var divPai = null
-	var div = null
-
-	
-
-
-	if(!document.querySelector("#spanLink")){
-		var linkBootstrap = document.createElement( 'span' );
-		linkBootstrap.id = 'spanLink';	
-		var head = document.querySelector("head")
-		linkBootstrap.innerHTML = '<link id="linkBootstrap" rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css">'
-		head.insertBefore(linkBootstrap,head.firstChild);
-	}
-
-	if(!document.querySelector("#divIcon")){
-		divPai = document.querySelector("._3lq69").firstChild
-		divPai.style.marginBottom = "15px"
-		div = document.createElement( 'div' );	
-		div.id = 'divIcon';
-		div.innerHTML = '<img onclick="DivIzza()" id="iconeDaIzza" src="https://izza.online/img/izzaWhatsapp.svg"'+
-		'style="    width: 24px;    height: 24px;       margin-top: 10px; ">'
-		divPai.insertBefore(div,divPai.firstChild);
-	}
-
-}*/
-
-//verifica os cliques na tela se é para abrir ou fechar a izza
-/*document.addEventListener("click", function(e){
-	var verif = document.querySelector("#divConfigIzza").contains(e.target);
-	var verifLogoIzza = document.querySelector("#divIcon").contains(e.target);
-	if (!verif && !verifLogoIzza) document.querySelector("#divConfigIzza").style.display = 'none'
-});*/
-  
-  
-
-
-//abre e fecha izza div
-/*function DivIzza(){
-	if(!document.querySelector("#divConfigIzza")){
-		criarDivAcoes()
-	}else if(document.querySelector("#divConfigIzza").style.display == 'none'){
-		document.querySelector("#divConfigIzza").style.display = 'block'
-	}else{
-		document.querySelector("#divConfigIzza").style.display = 'none'
-	}
-}*/
-
-//cria izza div
-/*function criarDivAcoes() {	
-	if(!document.querySelector("#divConfigIzza")){
-		var div = document.createElement( 'div' );
-		var divPai = null;
-		if(document.querySelector("#main")){
-			divPai = document.querySelector("#main").parentElement
-		}else{
-			divPai = document.querySelector(".iFKgT").parentElement
-		}		
-
-		//set attributes for div
-		div.id = 'divConfigIzza';
-		//div.style.marginTop = '20px';
-		div.style.position = 'fixed';
-		div.style.top = '0';
-		div.style.left = '0';
-		div.style.width = '100%';   
-		div.style.height = '100%';
-		div.style.textAlign = 'center';
-		div.style.backgroundColor = '#ededed';
-		div.style.color = 'black';
-		div.style.display = 'block';
-		div.style.zIndex = '99999999999999999999999999';	
-		div.innerHTML = 'Conectando....'	;		
-		div.innerHTML =  
-		'<link  rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css">'+
-		'<div class="row" style="    margin: 0;"><div onclick="defMensagemIzza()" class="col-lg-4 mensagensIzza" style="padding: 20px;border: 1px solid rgba(0, 0, 0, 0.1);background-color: #c056fb;color: white;">'+
-		'MENSAGENS</div><div onclick="defPedidosIzza()" class="col-lg-4 pedidosIzza" style="    padding: 20px;    border: 1px solid rgba(0, 0, 0, 0.1);    background-color: #c056fb;    color: white;">'+
-		'PEDIDOS</div><div onclick="defconfiguracoesIzza()" class="col-lg-4 configuracoesIzza" style="    padding: 20px;    border: 1px solid rgba(0, 0, 0, 0.1);    background-color: #c056fb;    color: white;">'+
-		'CONFIGURAÇÕES</div></div>'+			
-		'<section id="mensagensIzza" style="display:block"><div class="row" style="    margin: 0;">'+
-			'<div class="col-lg-12"><h3 style="margin:25px"> Disparo de Mensagens </h3></div>'+
-			'<div class="col-lg-6">'+
-				'<label> 1. Texto da Mensagem </label>'+
-				'<br><textarea style="width: 100%;" placeholder="Insira aqui a mensagem" id="txtMensagem">  </textarea></div>'+
-			'<div class="col-lg-6">'+
-				'<label> 2. Destinatários </label>'+
-				'<br><textarea style="width: 100%;" placeholder="Insira aqui os destinatarios" id="txtDestinos">  </textarea></div>'+
-			'<div class="col-lg-12" style="text-align:center"><button class="btn btn-success"> Disparar </button></div>'+
-		'</div></section>'+
-		'<section  id="pedidosIzza" style="display:none"> functions pedidos </section>'+
-		'<section  id="configuracoesIzza" style="display:none"> functions configurações </section>'			
-		divPai.insertBefore(div,divPai.firstChild);		
-	}else{
-		document.querySelector("#divConfigIzza").style.display = 'block'
-	}
-}*/
-
-//fica verificando se a tela ja foi carregada
- /*function verificandoInicioWhatsapp(){
-	if(!document.querySelector("._3j8Pd")){
-		console.log("Verificando Login: ainda nao logou")
-		setTimeout(function(){ verificandoInicioWhatsapp()}, 2000)
-	}else{
-		console.log("Verificando Login: agora logou")
-		colocarIconIzzaNoWhatsapp()
-		criarDivAcoes()
-	}
-}
-verificandoInicioWhatsapp()*/
-
-
-/*
-function defMensagemIzza(){
-	if(document.querySelector("#mensagensIzza").style.display == 'none'){
-		document.querySelector("#pedidosIzza").style.display = 'none'
-		document.querySelector("#configuracoesIzza").style.display = 'none'	
-		document.querySelector("#mensagensIzza").style.display = 'block'
-	}
-}
-
-function defPedidosIzza(){
-	if(document.querySelector("#pedidosIzza").style.display == 'none'){
-		document.querySelector("#mensagensIzza").style.display = 'none'
-		document.querySelector("#configuracoesIzza").style.display = 'none'	
-		document.querySelector("#pedidosIzza").style.display = 'block'				
-	}
-}
-
-function defconfiguracoesIzza(){
-	if(document.querySelector("#configuracoesIzza").style.display == 'none'){
-		document.querySelector("#mensagensIzza").style.display = 'none'
-		document.querySelector("#pedidosIzza").style.display = 'none'
-		document.querySelector("#configuracoesIzza").style.display = 'block'				
-	}
-}
-	
-
-*/
 function disparar() {
 	var mensagens = document.getElementById('txtMensagem');
 	var numeros = document.getElementById('txtDestinos').value.split(",");

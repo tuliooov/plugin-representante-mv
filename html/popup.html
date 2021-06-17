@@ -80,26 +80,41 @@
 
 	<div>
 		<label for="tempo">Tempo (s) msg</label>
+		<br>
 		<input type="number" id="tempo" value="5" name="tempo"  />
 	</div>
 	<div>
+		<label for="quantidade">Máximo Envios</label>
+		<input type="number" id="quantidade" value="350" name="quantidade"  />
+	</div>
+	<div>
+		<select id="tipoArquivo" onchange="tipoArquivo()">
+			<option>Video</option>
+			<option>Imagem</option>
+		</select>
 		<input type="file" id="files" name="files" />
-		<textarea id="mensagemParaEnviar" rows="5" style=""></textarea>
+	</div>
+	
+	<div>
+		<img src="" style="max-height: 200px; display: none;" id="imagemPronta"/>
+		<video src="" style="max-height: 200px; display: none;" id="videoPronto" controls></video>
 		<textarea id="base64" rows="5" style="display:none"></textarea>
 	</div>
 
 	<div>
-		<img src="" style="max-height: 200px;" id="imagemPronta"/>
+		<label for="mensagemParaEnviar">Mensagem a ser enviada</label>
+		<textarea id="mensagemParaEnviar" rows="5"></textarea>
 	</div>
 
-	<div>
-		<input type="checkbox" id="teste" name="teste"
-				>
+	
+
+	<div style="display: none;">
+		<input type="checkbox" id="teste" name="teste">
 		<label for="teste">Teste</label>
 	</div>
 	
 	<div>
-		<input type="checkbox" id="naoHoje" name="naoHoje">
+		<input type="checkbox" id="naoHoje" checked name="naoHoje">
 		<label for="naoHoje">Apenas os que não conversei hoje.</label>
 	</div>
 
@@ -112,7 +127,7 @@
 
 	<br><br>
 
-	<a href="#" class="button1" id="buttonTodos">Enviar (Todos)</a>
+	<a href="#" class="button1" id="buttonTodos">Enviar</a>
 	
 
 </body>
