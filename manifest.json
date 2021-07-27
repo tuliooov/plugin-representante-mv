@@ -35,7 +35,6 @@
 		"https://ws.appclientefiel.com.br/*",
 		"https://sistema.appclientefiel.com.br/*",
 		"https://painel.clientefiel.app/*"
-
 	],
 	
 	"web_accessible_resources": [

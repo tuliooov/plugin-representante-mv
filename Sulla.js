@@ -2301,9 +2301,3 @@ function mandarAosPoucos(tempo, qtd = 50){
 	}, tempo*1000)
 }
 
-
-
-
-
-console.log('Fim whatsapp');
-

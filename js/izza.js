@@ -118,16 +118,19 @@ async function enviarParaTodosContatos({
 			localStorage.setItem('contatosEnviar', JSON.stringify(all))
 
 			if(imagem){
-				if(teste) console.log('enviouImagem', contato)
-				else window.WAPI.sendImage(imagem, contato ,'imagemMV')
-				// else window.WAPI.sendImage(imagem, contato.id._serialized ,'imagemMV')
-				
+				if(teste){
+					console.log('enviouImagem', contato)
+				}else{
+					window.WAPI.sendImage(imagem, contato ,'imagemMV')
+				}
 				await sleep(3000)
 			}
 
-			if(teste) console.log('enviouMensagem', contato)
-			else window.WAPI.sendMessageToID(contato, mensagem);
-			// else window.WAPI.sendMessageToID(contato.id._serialized, mensagem);
+			if(teste){
+				console.log('enviouMensagem', contato)
+			}else{
+				window.WAPI.sendMessageToID(contato, mensagem);
+			}
 			
 			await sleep(tempo * 1000)
 		}
