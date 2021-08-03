@@ -102,6 +102,7 @@ async function enviarParaTodosContatos({
 		localStorage.setItem('contatosEnviar', JSON.stringify(numeros))
 	}
 
+	console.log('numeros', numeros)
 	console.log('enviarParaTodosContatosIzza', mensagem, imagem)
 
 	while(true){
@@ -129,7 +130,7 @@ async function enviarParaTodosContatos({
 			if(teste){
 				console.log('enviouMensagem', contato)
 			}else{
-				window.WAPI.sendMessageToID(contato, mensagem);
+				window.WAPI.sendMessage(contato, mensagem);
 			}
 			
 			await sleep(tempo * 1000)
