@@ -102,7 +102,7 @@ async function enviarParaTodosContatos({
 		localStorage.setItem('contatosEnviar', JSON.stringify(numeros))
 	}
 
-	console.log('numeros', numeros)
+	console.log('numeros', all)
 	console.log('enviarParaTodosContatosIzza', mensagem, imagem)
 
 	while(true){
